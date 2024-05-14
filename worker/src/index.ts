@@ -11,6 +11,8 @@
  * Learn more at https://developers.cloudflare.com/workers/
  */
 
+const WORKER_MAX_CONCURRENT_REQUESTS = 6;
+
 const TOP_K_REACHED = "Top K reached";
 
 const awsRegions = [
@@ -53,6 +55,40 @@ const chinaAwsRegions = [
 type AWSRegion = typeof awsRegions[number];
 type ChinaAwsRegion = typeof chinaAwsRegions[number];
 
+const awsRegionToName: Record<AWSRegion | ChinaAwsRegion, string> = {
+	"us-east-2": "US East (Ohio)",
+	"us-east-1": "US East (Virginia)",
+	"us-west-1": "US West (N. California)",
+	"us-west-2": "US West (Oregon)",
+	"af-south-1": "Africa (Cape Town)",
+	"ap-east-1": "Asia Pacific (Hong Kong)",
+	"ap-south-2": "Asia Pacific (Hyderabad)",
+	"ap-southeast-3": "Asia Pacific (Jakarta)",
+	"ap-southeast-4": "Asia Pacific (Melbourne)",
+	"ap-south-1": "Asia Pacific (Mumbai)",
+	"ap-northeast-3": "Asia Pacific (Osaka)",
+	"ap-northeast-2": "Asia Pacific (Seoul)",
+	"ap-southeast-1": "Asia Pacific (Singapore)",
+	"ap-southeast-2": "Asia Pacific (Sydney)",
+	"ap-northeast-1": "Asia Pacific (Tokyo)",
+	"ca-central-1": "Canada (Central)",
+	"ca-west-1": "Canada West (Calgary)",
+	"eu-central-1": "Europe (Frankfurt)",
+	"eu-west-1": "Europe (Ireland)",
+	"eu-west-2": "Europe (London)",
+	"eu-south-1": "Europe (Milan)",
+	"eu-west-3": "Europe (Paris)",
+	"eu-south-2": "Europe (Spain)",
+	"eu-north-1": "Europe (Stockholm)",
+	"eu-central-2": "Europe (Zurich)",
+	"il-central-1": "Israel (Tel Aviv)",
+	"me-south-1": "Middle East (Bahrain)",
+	"me-central-1": "Middle East (UAE)",
+	"sa-east-1": "South America (São Paulo)",
+	"cn-north-1": "China (Beijing)",
+	"cn-northwest-1": "China (Ningxia)"
+}
+
 
 function isAwsRegion(region: string): region is (AWSRegion | ChinaAwsRegion) {
 	return awsRegions.includes(region as AWSRegion) || chinaAwsRegions.includes(region as ChinaAwsRegion);;
@@ -76,13 +112,14 @@ function removeDuplicates<T>(value: T, index: number, self: T[]) {
 }
 
 type RequestBody = {
-	testRegions?: (AWSRegion | ChinaAwsRegion)[];
-	topK?: number;
+	regions?: (AWSRegion | ChinaAwsRegion)[];
+	includeChina?: boolean;
 }
 
 type ResponseBody = {
 	results: {
 		region: (AWSRegion | ChinaAwsRegion);
+		name: string;
 		latency: number;
 	}[];
 }
@@ -96,45 +133,58 @@ export default {
 			});
 		}
 
-		const body: RequestBody = await request.json() ?? {};
-
-		const results: ResponseBody["results"] = [];
-
-		let regions = body
-			.testRegions
+		let requestBody: RequestBody = {};
+		try {
+			requestBody = await request.json();
+		} catch (error) {
+			// Do nothing
+		}
+			
+		let regions = requestBody
+			.regions
 			?.filter(isAwsRegion)
 			?.filter(removeDuplicates)
 
 		if (!regions || regions.length === 0) {
-			regions = (awsRegions as unknown as AWSRegion[]).concat(chinaAwsRegions as unknown as AWSRegion[]);
+			regions = (awsRegions as unknown as AWSRegion[])
+				.concat((requestBody.includeChina ?? false) 
+					? chinaAwsRegions as unknown as AWSRegion[] 
+					: []
+				);
 		}
 
-		const topK = Math.max(
-			1,
-			Math.min(
-				body.topK ?? regions.length, 
-				regions.length
-			), 
-		);
+		let results: ResponseBody["results"] = [];
 
-		const shouldEarlyReturn = topK !== regions.length;
-
-		try {
-			await Promise.all(regions.map(async (region) => {
-				const latency = await ping(region);
-				const length = results.push({ region, latency });
-
-				if (length >= topK && shouldEarlyReturn) {
-					throw TOP_K_REACHED;
-				}
-			}));
-		} catch (error) {
-			if (error !== TOP_K_REACHED) {
-				return new Response(null, {
-					status: 500,
-					statusText: "Internal Server Error",
-				});
+		if (regions.length > WORKER_MAX_CONCURRENT_REQUESTS) {
+			let subRequests = []
+			while (regions.length > 0) {
+				subRequests.push(regions.splice(0, WORKER_MAX_CONCURRENT_REQUESTS));
 			}
+
+			const accumulatedRequests = await Promise.all(subRequests.map(async (subRequest) => {
+				const subRequestBody: RequestBody = {
+					regions: subRequest
+				};
+
+				const res = await env.THIS_WORKER.fetch(request, {
+					body: JSON.stringify(subRequestBody),
+				});
+
+				return (await res.json()) as ResponseBody;
+			}));
+
+			results = accumulatedRequests.reduce((acc, { results }) => {
+				return acc.concat(results);
+			}, [] as ResponseBody["results"]);
+		} else {
+			results = await Promise.all(regions.map(async (region) => {
+				const latency = await ping(region);
+				return { 
+					region, 
+					name: awsRegionToName[region],
+					latency 
+				};
+			}));
 		}
 
 		const responseBody: ResponseBody = {
