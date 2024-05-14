@@ -1,20 +1,3 @@
-/**
- * Welcome to Cloudflare Workers! This is your first worker.
- *
- * - Run `npm run dev` in your terminal to start a development server
- * - Open a browser tab at http://localhost:8787/ to see your worker in action
- * - Run `npm run deploy` to publish your worker
- *
- * Bind resources to your worker in `wrangler.toml`. After adding bindings, a type definition for the
- * `Env` object can be regenerated with `npm run cf-typegen`.
- *
- * Learn more at https://developers.cloudflare.com/workers/
- */
-
-const WORKER_MAX_CONCURRENT_REQUESTS = 6;
-
-const TOP_K_REACHED = "Top K reached";
-
 const awsRegions = [
     "us-east-2",
     "us-east-1",
@@ -89,7 +72,6 @@ const awsRegionToName: Record<AWSRegion | ChinaAwsRegion, string> = {
 	"cn-northwest-1": "China (Ningxia)"
 }
 
-
 function isAwsRegion(region: string): region is (AWSRegion | ChinaAwsRegion) {
 	return awsRegions.includes(region as AWSRegion) || chinaAwsRegions.includes(region as ChinaAwsRegion);;
 }
@@ -122,6 +104,7 @@ type ResponseBody = {
 		name: string;
 		latency: number;
 	}[];
+	timestamp: number;
 }
 
 export default {
@@ -153,44 +136,46 @@ export default {
 				);
 		}
 
-		let results: ResponseBody["results"] = [];
+		const cloudflareDataCenterId = request.cf?.colo as string;
 
-		if (regions.length > WORKER_MAX_CONCURRENT_REQUESTS) {
-			let subRequests = []
-			while (regions.length > 0) {
-				subRequests.push(regions.splice(0, WORKER_MAX_CONCURRENT_REQUESTS));
+		const uploadLatenciesToStore = (async () => {
+			let results: ResponseBody["results"] = [];
+
+			for (const region of regions) {
+				const latency = await ping(region);
+				results.push({
+					region,
+					name: awsRegionToName[region],
+					latency,
+				});
 			}
 
-			const accumulatedRequests = await Promise.all(subRequests.map(async (subRequest) => {
-				const subRequestBody: RequestBody = {
-					regions: subRequest
-				};
+			const randomString = Math.random().toString(36).substring(7);
 
-				const res = await env.THIS_WORKER.fetch(request, {
-					body: JSON.stringify(subRequestBody),
-				});
+			const store: ResponseBody = {
+				results,
+				timestamp: Date.now(),
+			}
 
-				return (await res.json()) as ResponseBody;
-			}));
+			await env.LATENCIES_STORE.put(cloudflareDataCenterId + ":" + randomString, JSON.stringify(store));
 
-			results = accumulatedRequests.reduce((acc, { results }) => {
-				return acc.concat(results);
-			}, [] as ResponseBody["results"]);
+			return store;
+		})
+	
+		const latenciesKeys = await env.LATENCIES_STORE.list({ prefix: cloudflareDataCenterId });
+
+		let responseBody: ResponseBody;
+		if (latenciesKeys.keys.length === 0) {
+			responseBody = await uploadLatenciesToStore();
 		} else {
-			results = await Promise.all(regions.map(async (region) => {
-				const latency = await ping(region);
-				return { 
-					region, 
-					name: awsRegionToName[region],
-					latency 
-				};
-			}));
+			const res = await env.LATENCIES_STORE.get(latenciesKeys.keys[0].name) as string;
+			responseBody = JSON.parse(res);
+
+			if (latenciesKeys.keys.length < 500) {
+				ctx.waitUntil(uploadLatenciesToStore());
+			}
 		}
 
-		const responseBody: ResponseBody = {
-			results,
-		};
-		
 		return new Response(JSON.stringify(responseBody), {
 			status: 200,
 			headers: {
