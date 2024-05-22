@@ -8,6 +8,8 @@ kv_namespaces = [
     { binding = "LATENCIES_STORE", id = "fcd7634713c048c2acbe0132a6b7aae6" }
 ]
 
+[triggers]
+crons = ["*/10 * * * *"]
 
 # Automatically place your workloads in an optimal location to minimize latency.
 # If you are running back-end logic in a Worker, running it closer to your back-end infrastructure
