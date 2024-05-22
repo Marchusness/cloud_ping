@@ -77,8 +77,8 @@ const awsRegionToName: Record<AWSRegion | ChinaAwsRegion, string> = {
 
 async function ping(region: (AWSRegion | ChinaAwsRegion)) {
 	const url = chinaAwsRegions.includes(region as ChinaAwsRegion) 
-	? `https://dynamodb.${region}.amazonaws.com.cn/ping`
-	: `https://dynamodb.${region}.amazonaws.com/ping`;
+	? `http://dynamodb.${region}.amazonaws.com.cn/ping`
+	: `http://dynamodb.${region}.amazonaws.com/ping`;
 
 	const start = performance.now();
 	await fetch(url, { method: "HEAD" });
