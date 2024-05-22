@@ -1,3 +1,6 @@
+
+const SOURCE_CODE_URL = "https://github.com/Marchusness/cloud_ping"
+
 const awsRegions = [
     "us-east-2",
     "us-east-1",
@@ -77,12 +80,10 @@ async function ping(region: (AWSRegion | ChinaAwsRegion)) {
 	? `https://dynamodb.${region}.amazonaws.com.cn/ping`
 	: `https://dynamodb.${region}.amazonaws.com/ping`;
 
-	const start = Date.now();
-	const response = await fetch(url);
-	const end = Date.now();
-
-	const latency = end - start;
-	return latency;
+	const start = performance.now();
+	await fetch(url, { method: "HEAD" });
+	const end = performance.now();
+	return end - start;
 }
 
 type RequestBody = {
@@ -97,6 +98,7 @@ type ResponseBody = {
 	}[];
 	cloudflareDataCenterAirportCode: string;
 	averageFromPingCount: number;
+	sourceCode: string;
 }
 
 type PingDocument = {
@@ -185,15 +187,14 @@ export default {
 			const newResults = ping.results.map((res) => {
 				const existingResult = avg.results.find((r) => r.region === res.region);
 
-				if (existingResult) {
-					const newLatency = (existingResult.latency * avg.count + res.latency) / (avg.count + 1);
-					return {
-						region: res.region,
-						latency: newLatency,
-					}
+				if (!existingResult) {
+					return res;
 				}
-
-				return res;
+				
+				return {
+					region: res.region,
+					latency: (existingResult.latency * avg.count + res.latency) / (avg.count + 1),
+				}
 			});
 
 			avg.results = newResults;
@@ -241,11 +242,13 @@ export default {
 		if (avgLatency) {
 			const responseBody: ResponseBody = {
 				results: avgLatency.results.map((res) => ({
-					...res,
+					region: res.region,
+					latency: res.latency,
 					name: awsRegionToName[res.region],
 				})),
 				averageFromPingCount: avgLatency.count,
 				cloudflareDataCenterAirportCode: cloudflareDataCenterId,
+				sourceCode: SOURCE_CODE_URL,
 			}
 
 			if (probabilityOfNewPing(avgLatency.count) > Math.random()) {
@@ -268,21 +271,25 @@ export default {
 			const pingDoc = await uploadLatenciesToStore(cloudflareDataCenterId, env);
 			responseBody = {
 				results: pingDoc.results.map((res) => ({
-					...res,
+					region: res.region,
+					latency: res.latency,
 					name: awsRegionToName[res.region],
 				})),
 				cloudflareDataCenterAirportCode: cloudflareDataCenterId,
 				averageFromPingCount: 1,
+				sourceCode: SOURCE_CODE_URL,
 			};
 		} else {
 			const res = await env.LATENCIES_STORE.get(latenciesKeys.keys[0].name, { type: "json" }) as PingDocument;
 			responseBody = {
 				results: res.results.map((res) => ({
-					...res,
+					region: res.region,
+					latency: res.latency,
 					name: awsRegionToName[res.region],
 				})),
 				averageFromPingCount: 1,
 				cloudflareDataCenterAirportCode: cloudflareDataCenterId,
+				sourceCode: SOURCE_CODE_URL,
 			}
 
 			ctx.waitUntil(uploadLatenciesToStore(cloudflareDataCenterId, env));

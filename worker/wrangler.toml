@@ -5,7 +5,7 @@ compatibility_date = "2024-05-12"
 compatibility_flags = ["nodejs_compat"]
 
 kv_namespaces = [
-    { binding = "LATENCIES_STORE", id = "fcd7634713c048c2acbe0132a6b7aae6" }
+    { binding = "LATENCIES_STORE", id = "071e29d4ac954f78bce1ea67e2c3b80f" }
 ]
 
 [triggers]
