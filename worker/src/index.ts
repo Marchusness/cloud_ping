@@ -86,9 +86,7 @@ async function ping(region: (AWSRegion | ChinaAwsRegion)) {
 	return end - start;
 }
 
-type RequestBody = {
-	onlyPopulateDb?: boolean;
-}
+type RequestBody = {}
 
 type ResponseBody = {
 	results: {
@@ -227,15 +225,6 @@ export default {
 		}
 
 		const cloudflareDataCenterId = request.cf?.colo as string;
-
-		if (requestBody.onlyPopulateDb === true) {
-			ctx.waitUntil(uploadLatenciesToStore(cloudflareDataCenterId, env));
-
-			return new Response(null, {
-				status: 200,
-			});
-		}
-
 
 		const avgLatency = await env.LATENCIES_STORE.get("avg:" + cloudflareDataCenterId, { type: "json" }) as AvgDocument | undefined;
 
