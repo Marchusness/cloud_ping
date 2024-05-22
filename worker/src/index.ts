@@ -81,7 +81,7 @@ async function ping(region: (AWSRegion | ChinaAwsRegion)) {
 	: `http://dynamodb.${region}.amazonaws.com/ping`;
 
 	const start = performance.now();
-	await fetch(url, { method: "HEAD" });
+	await fetch(url);
 	const end = performance.now();
 	return end - start;
 }
