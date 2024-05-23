@@ -147,8 +147,6 @@ async function uploadLatenciesToStore(cloudflareDataCenterId: string, env: Env) 
 
 	return store;
 }
-
-
 export default {
 	async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
 		const pingKeys = await env.LATENCIES_STORE.list({ prefix: "ping:", limit: 400});
@@ -182,18 +180,23 @@ export default {
 
 			const avg = avgLatencies[ping.cloudflareDataCenterAirportCode];
 
-			const newResults = ping.results.map((res) => {
-				const existingResult = avg.results.find((r) => r.region === res.region);
+			const newResults = ping
+				.results
+				.map((res) => {
+					const existingResult = avg.results.find((r) => r.region === res.region);
 
-				if (!existingResult) {
-					return res;
-				}
-				
-				return {
-					region: res.region,
-					latency: (existingResult.latency * avg.count + res.latency) / (avg.count + 1),
-				}
-			});
+					if (!existingResult) {
+						return res;
+					}
+					
+					return {
+						region: res.region,
+						latency: (existingResult.latency * avg.count + res.latency) / (avg.count + 1),
+					}
+				})
+				.sort((a, b) => {
+					return a.latency - b.latency;
+				});
 
 			avg.results = newResults;
 			avg.count += 1;
