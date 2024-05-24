@@ -1,10 +1,10 @@
 import {
-  AWSRegion, ChinaAwsRegion, awsRegionToName, awsRegions, chinaAwsRegions
+  AWSRegion, ChinaAwsRegion, allAwsRegions, awsRegionToName,
+  isValidRegion
 } from "./constants/aws";
 import { AvgDocument, PingDocument } from "./models/documents";
-import { ResponseBody } from "./models/requestResponse";
-import { nConcurrentRequests } from "./utils/parallel";
-import { ping } from "./utils/ping";
+import { RegionToLatency, pingRemainingRegions } from "./utils/pingRemainingRegions";
+import { RequestBody, ResponseBody } from "./models/requestResponse";
 
 const SOURCE_CODE_URL = "https://github.com/Marchusness/cloud_ping";
 
@@ -13,14 +13,16 @@ function probabilityOfNewPing(count: number) {
   return Math.pow(1.5, -(count / 100));
 }
 
-async function uploadLatenciesToStore(cloudflareDataCenterId: string, env: Env) {
-  const allRegions = (awsRegions as unknown as string[]).concat(chinaAwsRegions) as (AWSRegion | ChinaAwsRegion)[];
-
+async function uploadLatenciesToStore(
+  cloudflareDataCenterId: string,
+  env: Env,
+  existingResults: RegionToLatency = {} as RegionToLatency,
+) {
   const results: PingDocument["results"] = [];
 
-  const regionToLatencyData = await nConcurrentRequests(allRegions, 1, ping);
+  const regionToLatencyData = await pingRemainingRegions(allAwsRegions, existingResults);
 
-  for (const region of allRegions) {
+  for (const region of allAwsRegions) {
     const {
       firstPingLatency,
       secondPingLatency,
@@ -127,12 +129,14 @@ export default {
       });
     }
 
-    // let requestBody: RequestBody = {};
-    // try {
-    //   requestBody = await request.json();
-    // } catch (error) {
-    //   // Do nothing
-    // }
+    let requestBody: RequestBody = {};
+    let optimiseForRegions: (AWSRegion | ChinaAwsRegion)[] | undefined = undefined;
+    try {
+      requestBody = await request.json();
+      optimiseForRegions = requestBody.onNoCache?.optimiseForRegions?.filter(isValidRegion);
+    } catch (error) {
+      // Do nothing
+    }
 
     const cloudflareDataCenterId = request.cf?.colo as string;
 
@@ -173,13 +177,16 @@ export default {
     });
 
     if (latenciesKeys.keys.length === 0) {
-      const pingDoc = await uploadLatenciesToStore(cloudflareDataCenterId, env);
+      const partialResults: RegionToLatency = await pingRemainingRegions(optimiseForRegions ?? allAwsRegions);
+
+      ctx.waitUntil(uploadLatenciesToStore(cloudflareDataCenterId, env, partialResults));
+
       responseBody = {
-        results: pingDoc.results.map((res) => ({
-          region: res.region,
-          firstPingLatency: res.firstPingLatency,
-          secondPingLatency: res.secondPingLatency,
-          name: awsRegionToName[res.region],
+        results: Object.entries(partialResults).map(([region, latencyData]) => ({
+          region: region as keyof RegionToLatency,
+          firstPingLatency: latencyData.firstPingLatency,
+          secondPingLatency: latencyData.secondPingLatency,
+          name: awsRegionToName[region as keyof RegionToLatency],
         })),
         cloudflareDataCenterAirportCode: cloudflareDataCenterId,
         averageFromPingCount: 1,

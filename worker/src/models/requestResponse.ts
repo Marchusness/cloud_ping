@@ -1,6 +1,10 @@
 import { AWSRegion, ChinaAwsRegion } from "../constants/aws";
 
-export type RequestBody = object;
+export type RequestBody = {
+  onNoCache?: {
+    optimiseForRegions?: (AWSRegion | ChinaAwsRegion)[];
+  };
+};
 
 export type ResponseBody = {
   results: {

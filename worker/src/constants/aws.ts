@@ -36,6 +36,8 @@ export const chinaAwsRegions = [
   "cn-northwest-1",
 ] as const;
 
+export const allAwsRegions = (awsRegions as unknown as string[]).concat(chinaAwsRegions) as (AWSRegion | ChinaAwsRegion)[];
+
 export type AWSRegion = typeof awsRegions[number];
 export type ChinaAwsRegion = typeof chinaAwsRegions[number];
 
@@ -72,3 +74,7 @@ export const awsRegionToName: Record<AWSRegion | ChinaAwsRegion, string> = {
   "cn-north-1": "China (Beijing)",
   "cn-northwest-1": "China (Ningxia)",
 };
+
+export function isValidRegion(region: string): region is (AWSRegion | ChinaAwsRegion) {
+  return awsRegions.includes(region as AWSRegion) || chinaAwsRegions.includes(region as ChinaAwsRegion);
+}
