@@ -1,197 +1,214 @@
-import { AWSRegion, awsRegions, awsRegionToName, ChinaAwsRegion, chinaAwsRegions } from "./constants/aws";
+import {
+  AWSRegion, ChinaAwsRegion, awsRegionToName, awsRegions, chinaAwsRegions
+} from "./constants/aws";
 import { AvgDocument, PingDocument } from "./models/documents";
-import { RequestBody, ResponseBody } from "./models/requestResponse";
+import { ResponseBody } from "./models/requestResponse";
 import { nConcurrentRequests } from "./utils/parallel";
 import { ping } from "./utils/ping";
 
-const SOURCE_CODE_URL = "https://github.com/Marchusness/cloud_ping"
+const SOURCE_CODE_URL = "https://github.com/Marchusness/cloud_ping";
 
 function probabilityOfNewPing(count: number) {
-	// 1.5 ^ -(x/100)
-	return Math.pow(1.5, -(count / 100));
+  // 1.5 ^ -(x/100)
+  return Math.pow(1.5, -(count / 100));
 }
 
 async function uploadLatenciesToStore(cloudflareDataCenterId: string, env: Env) {
-	const allRegions = (awsRegions as unknown as string[]).concat(chinaAwsRegions) as (AWSRegion | ChinaAwsRegion)[];
+  const allRegions = (awsRegions as unknown as string[]).concat(chinaAwsRegions) as (AWSRegion | ChinaAwsRegion)[];
 
-	let results: PingDocument["results"] = [];
+  const results: PingDocument["results"] = [];
 
-	const regionToLatencyData = await nConcurrentRequests(allRegions, 1, ping)
+  const regionToLatencyData = await nConcurrentRequests(allRegions, 1, ping);
 
-	for (const region of allRegions) {
-		const {
-			firstPingLatency,
-			secondPingLatency,
-		} = regionToLatencyData[region];
+  for (const region of allRegions) {
+    const {
+      firstPingLatency,
+      secondPingLatency,
+    } = regionToLatencyData[region];
 
-		results.push({
-			region,
-			firstPingLatency,
-			secondPingLatency,
-		});
-	}
+    results.push({
+      region,
+      firstPingLatency,
+      secondPingLatency,
+    });
+  }
 
-	const randomString = crypto.randomUUID().replaceAll("-", "");
+  const randomString = crypto.randomUUID().replaceAll("-", "");
 
-	const store: PingDocument = {
-		results,
-		timestamp: Date.now(),
-		cloudflareDataCenterAirportCode: cloudflareDataCenterId,
-	}
+  const store: PingDocument = {
+    results,
+    timestamp: Date.now(),
+    cloudflareDataCenterAirportCode: cloudflareDataCenterId,
+  };
 
-	await env.LATENCIES_STORE.put("ping:" + cloudflareDataCenterId + ":" + randomString, JSON.stringify(store));
+  await env.LATENCIES_STORE.put("ping:" + cloudflareDataCenterId + ":" + randomString, JSON.stringify(store));
 
-	return store;
+  return store;
 }
+
 export default {
-	async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
-		const pingKeys = await env.LATENCIES_STORE.list({ prefix: "ping:", limit: 400});
+  async scheduled(event: ScheduledEvent, env: Env) {
+    const pingKeys = await env.LATENCIES_STORE.list({
+      prefix: "ping:",
+      limit: 400,
+    });
 
-		// get unique set of cloudflare airport codes
-		const cloudflareAirportCodes = new Set<string>();
-		for (const key of pingKeys.keys) {
-			cloudflareAirportCodes.add(key.name.split(":")[1]);
-		}
+    // get unique set of cloudflare airport codes
+    const cloudflareAirportCodes = new Set<string>();
+    for (const key of pingKeys.keys) {
+      cloudflareAirportCodes.add(key.name.split(":")[1]);
+    }
 
-		// get avg latencies for each cloudflare airport code
-		const avgLatencies: Record<string, AvgDocument> = {};
-		for (const code of cloudflareAirportCodes) {
-			const avg = await env.LATENCIES_STORE.get("avg:" + code, { type: "json" }) as AvgDocument | undefined;
+    // get avg latencies for each cloudflare airport code
+    const avgLatencies: Record<string, AvgDocument> = {};
+    for (const code of cloudflareAirportCodes) {
+      const avg = await env.LATENCIES_STORE.get("avg:" + code, {
+        type: "json",
+      }) as AvgDocument | undefined;
 
-			if (avg) {
-				avgLatencies[code] = avg;
-			} else {
-				avgLatencies[code] = {
-					results: [],
-					count: 0,
-					cloudflareDataCenterAirportCode: code,
-				}
-			}
-		}
+      if (avg) {
+        avgLatencies[code] = avg;
+      } else {
+        avgLatencies[code] = {
+          results: [],
+          count: 0,
+          cloudflareDataCenterAirportCode: code,
+        };
+      }
+    }
 
-		// merge new ping results with avg latencies
-		for (const key of pingKeys.keys) {
-			const ping = await env.LATENCIES_STORE.get(key.name, { type: "json" }) as PingDocument;
-			await env.LATENCIES_STORE.put(key.name.replace("ping:", "recorded:"), JSON.stringify(ping));
+    // merge new ping results with avg latencies
+    for (const key of pingKeys.keys) {
+      const ping = await env.LATENCIES_STORE.get(key.name, {
+        type: "json",
+      }) as PingDocument;
+      await env.LATENCIES_STORE.put(key.name.replace("ping:", "recorded:"), JSON.stringify(ping));
 
-			const avg = avgLatencies[ping.cloudflareDataCenterAirportCode];
+      const avg = avgLatencies[ping.cloudflareDataCenterAirportCode];
 
-			const newResults = ping
-				.results
-				.map((res) => {
-					const existingResult = avg.results.find((r) => r.region === res.region);
+      const newResults = ping
+        .results
+        .map((res) => {
+          const existingResult = avg.results.find((r) => r.region === res.region);
 
-					if (!existingResult) {
-						return res;
-					}
-					
-					return {
-						region: res.region,
-						firstPingLatency: (existingResult.firstPingLatency * avg.count + res.firstPingLatency) / (avg.count + 1),
-						secondPingLatency: (existingResult.secondPingLatency * avg.count + res.secondPingLatency) / (avg.count + 1),
-					}
-				})
-				.sort((a, b) => {
-					return a.secondPingLatency - b.secondPingLatency;
-				});
+          if (!existingResult) {
+            return res;
+          }
 
-			avg.results = newResults;
-			avg.count += 1;
-		}
+          return {
+            region: res.region,
+            firstPingLatency: (existingResult.firstPingLatency * avg.count + res.firstPingLatency) / (avg.count + 1),
+            secondPingLatency: (existingResult.secondPingLatency * avg.count + res.secondPingLatency) / (avg.count + 1),
+          };
+        })
+        .sort((a, b) => {
+          return a.secondPingLatency - b.secondPingLatency;
+        });
 
-		// save avg latencies back to store
-		for (const code of cloudflareAirportCodes) {
-			await env.LATENCIES_STORE.put("avg:" + code, JSON.stringify(avgLatencies[code]));
-		}
+      avg.results = newResults;
+      avg.count += 1;
+    }
 
-		// delete ping results
-		for (const key of pingKeys.keys) {
-			await env.LATENCIES_STORE.delete(key.name);
-		}
-	},
-	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-		if (request.method !== "POST" && request.method !== "GET") {
-			return new Response(null, {
-				status: 405,
-				statusText: "Method Not Allowed",
-			});
-		}
+    // save avg latencies back to store
+    for (const code of cloudflareAirportCodes) {
+      await env.LATENCIES_STORE.put("avg:" + code, JSON.stringify(avgLatencies[code]));
+    }
 
-		let requestBody: RequestBody = {};
-		try {
-			requestBody = await request.json();
-		} catch (error) {
-			// Do nothing
-		}
+    // delete ping results
+    for (const key of pingKeys.keys) {
+      await env.LATENCIES_STORE.delete(key.name);
+    }
+  },
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    if (request.method !== "POST" && request.method !== "GET") {
+      return new Response(null, {
+        status: 405,
+        statusText: "Method Not Allowed",
+      });
+    }
 
-		const cloudflareDataCenterId = request.cf?.colo as string;
+    // let requestBody: RequestBody = {};
+    // try {
+    //   requestBody = await request.json();
+    // } catch (error) {
+    //   // Do nothing
+    // }
 
-		const avgLatency = await env.LATENCIES_STORE.get("avg:" + cloudflareDataCenterId, { type: "json" }) as AvgDocument | undefined;
+    const cloudflareDataCenterId = request.cf?.colo as string;
 
-		if (avgLatency) {
-			const responseBody: ResponseBody = {
-				results: avgLatency.results.map((res) => ({
-					region: res.region,
-					firstPingLatency: res.firstPingLatency,
-					secondPingLatency: res.secondPingLatency,
-					name: awsRegionToName[res.region],
-				})),
-				averageFromPingCount: avgLatency.count,
-				cloudflareDataCenterAirportCode: cloudflareDataCenterId,
-				sourceCode: SOURCE_CODE_URL,
-			}
+    const avgLatency = await env.LATENCIES_STORE.get("avg:" + cloudflareDataCenterId, {
+      type: "json",
+    }) as AvgDocument | undefined;
 
-			if (probabilityOfNewPing(avgLatency.count) > Math.random()) {
-				ctx.waitUntil(uploadLatenciesToStore(cloudflareDataCenterId, env));
-			}
+    if (avgLatency) {
+      const responseBody: ResponseBody = {
+        results: avgLatency.results.map((res) => ({
+          region: res.region,
+          firstPingLatency: res.firstPingLatency,
+          secondPingLatency: res.secondPingLatency,
+          name: awsRegionToName[res.region],
+        })),
+        averageFromPingCount: avgLatency.count,
+        cloudflareDataCenterAirportCode: cloudflareDataCenterId,
+        sourceCode: SOURCE_CODE_URL,
+      };
 
-			return new Response(JSON.stringify(responseBody), {
-				status: 200,
-				headers: {
-					"content-type": "application/json",
-				},
-			});
-		} 
+      if (probabilityOfNewPing(avgLatency.count) > Math.random()) {
+        ctx.waitUntil(uploadLatenciesToStore(cloudflareDataCenterId, env));
+      }
 
-		let responseBody: ResponseBody;
+      return new Response(JSON.stringify(responseBody), {
+        status: 200,
+        headers: {
+          "content-type": "application/json",
+        },
+      });
+    }
 
-		const latenciesKeys = await env.LATENCIES_STORE.list({ prefix: "ping:" + cloudflareDataCenterId });
-		
-		if (latenciesKeys.keys.length === 0) {
-			const pingDoc = await uploadLatenciesToStore(cloudflareDataCenterId, env);
-			responseBody = {
-				results: pingDoc.results.map((res) => ({
-					region: res.region,
-					firstPingLatency: res.firstPingLatency,
-					secondPingLatency: res.secondPingLatency,
-					name: awsRegionToName[res.region],
-				})),
-				cloudflareDataCenterAirportCode: cloudflareDataCenterId,
-				averageFromPingCount: 1,
-				sourceCode: SOURCE_CODE_URL,
-			};
-		} else {
-			const res = await env.LATENCIES_STORE.get(latenciesKeys.keys[0].name, { type: "json" }) as PingDocument;
-			responseBody = {
-				results: res.results.map((res) => ({
-					region: res.region,
-					firstPingLatency: res.firstPingLatency,
-					secondPingLatency: res.secondPingLatency,
-					name: awsRegionToName[res.region],
-				})),
-				averageFromPingCount: 1,
-				cloudflareDataCenterAirportCode: cloudflareDataCenterId,
-				sourceCode: SOURCE_CODE_URL,
-			}
+    let responseBody: ResponseBody;
 
-			ctx.waitUntil(uploadLatenciesToStore(cloudflareDataCenterId, env));
-		}
-	
-		return new Response(JSON.stringify(responseBody), {
-			status: 200,
-			headers: {
-				"content-type": "application/json",
-			},
-		});
-	},
+    const latenciesKeys = await env.LATENCIES_STORE.list({
+      prefix: "ping:" + cloudflareDataCenterId,
+      limit: 1,
+    });
+
+    if (latenciesKeys.keys.length === 0) {
+      const pingDoc = await uploadLatenciesToStore(cloudflareDataCenterId, env);
+      responseBody = {
+        results: pingDoc.results.map((res) => ({
+          region: res.region,
+          firstPingLatency: res.firstPingLatency,
+          secondPingLatency: res.secondPingLatency,
+          name: awsRegionToName[res.region],
+        })),
+        cloudflareDataCenterAirportCode: cloudflareDataCenterId,
+        averageFromPingCount: 1,
+        sourceCode: SOURCE_CODE_URL,
+      };
+    } else {
+      const res = await env.LATENCIES_STORE.get(latenciesKeys.keys[0].name, {
+        type: "json",
+      }) as PingDocument;
+      responseBody = {
+        results: res.results.map((res) => ({
+          region: res.region,
+          firstPingLatency: res.firstPingLatency,
+          secondPingLatency: res.secondPingLatency,
+          name: awsRegionToName[res.region],
+        })),
+        averageFromPingCount: 1,
+        cloudflareDataCenterAirportCode: cloudflareDataCenterId,
+        sourceCode: SOURCE_CODE_URL,
+      };
+
+      ctx.waitUntil(uploadLatenciesToStore(cloudflareDataCenterId, env));
+    }
+
+    return new Response(JSON.stringify(responseBody), {
+      status: 200,
+      headers: {
+        "content-type": "application/json",
+      },
+    });
+  },
 };
