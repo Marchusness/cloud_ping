@@ -122,10 +122,24 @@ export default {
     }
   },
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const corsHeaders = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "*",
+    };
+
+    if (request.method === "OPTIONS") {
+      return new Response(null, {
+        status: 200,
+        headers: corsHeaders,
+      });
+    }
+
     if (request.method !== "POST" && request.method !== "GET") {
       return new Response(null, {
         status: 405,
         statusText: "Method Not Allowed",
+        ...corsHeaders,
       });
     }
 
@@ -165,6 +179,7 @@ export default {
         status: 200,
         headers: {
           "content-type": "application/json",
+          ...corsHeaders,
         },
       });
     }
@@ -215,6 +230,7 @@ export default {
       status: 200,
       headers: {
         "content-type": "application/json",
+        ...corsHeaders,
       },
     });
   },
