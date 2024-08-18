@@ -2,5 +2,5 @@
 // by running `wrangler types`
 
 interface Env {
-	LATENCIES_STORE: KVNamespace;
+  LATENCIES_STORE: KVNamespace;
 }
