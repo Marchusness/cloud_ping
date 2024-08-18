@@ -7,7 +7,7 @@ import { RegionToLatency, pingRemainingRegions } from "../../utils/pingRemaining
 import { RequestBody, ResponseBody } from "../../models/requestResponse";
 import { SOURCE_CODE_URL } from "../../constants/sourceCodeUrl";
 import { shouldPingNewRegion } from "./shouldPingNewRegion";
-import { uploadLatenciesToStore } from "../../utils/uploadLatencyToStore";
+import { uploadLatenciesToStore } from "./uploadLatencyToStore";
 
 async function corsWrapper(handler: () => Promise<{
   body: string | null;
