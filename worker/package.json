@@ -14,5 +14,8 @@
     "eslint-config-mg-custom": "github:Marchusness/custom-lint",
     "typescript": "^5.0.4",
     "wrangler": "^3.0.0"
+  },
+  "dependencies": {
+    "edge-watch": "^0.0.0"
   }
 }

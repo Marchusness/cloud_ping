@@ -1,6 +1,6 @@
-import { PingDocument } from "../models/documents";
-import { RegionToLatency, pingRemainingRegions } from "./pingRemainingRegions";
-import { allAwsRegions } from "../constants/aws";
+import { PingDocument } from "../../models/documents";
+import { RegionToLatency } from "../../utils/pingRemainingRegions";
+import { allAwsRegions } from "../../constants/aws";
 
 export async function uploadLatenciesToStore(
   cloudflareDataCenterId: string,

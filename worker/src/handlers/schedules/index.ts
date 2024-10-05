@@ -1,6 +1,6 @@
 import { AvgDocument, PingDocument } from "../../models/documents";
 
-export async function scheduledHandler(event: ScheduledEvent, env: Env) {
+export async function scheduledHandler(event: ScheduledController, env: Env) {
   const pingKeys = await env.LATENCIES_STORE.list({
     prefix: "ping:",
     limit: 400,
