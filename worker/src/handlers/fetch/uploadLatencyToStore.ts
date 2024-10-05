@@ -1,5 +1,5 @@
 import { PingDocument } from "../../models/documents";
-import { RegionToLatency } from "../../utils/pingRemainingRegions";
+import { RegionToLatency, pingRemainingRegions } from "../../utils/pingRemainingRegions";
 import { allAwsRegions } from "../../constants/aws";
 
 export async function uploadLatenciesToStore(
@@ -31,6 +31,11 @@ export async function uploadLatenciesToStore(
     timestamp: Date.now(),
     cloudflareDataCenterAirportCode: cloudflareDataCenterId,
   };
+
+  console.log({
+    message: "uploading ping document",
+    store,
+  });
 
   await env.LATENCIES_STORE.put("ping:" + cloudflareDataCenterId + ":" + randomString, JSON.stringify(store));
 

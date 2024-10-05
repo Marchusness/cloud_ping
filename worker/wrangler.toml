@@ -9,5 +9,10 @@ kv_namespaces = [
     { binding = "LATENCIES_STORE", id = "9edd7eae1344433caa01cc693fb29453" }
 ]
 
+[observability]
+enabled = true
+
 [triggers]
 crons = ["*/10 * * * *"]
+
+tail_consumers = [{service = "cloud-ping"}]

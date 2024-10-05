@@ -43,8 +43,6 @@ export async function fetchHandler(request: Request, env: Env, ctx: ExecutionCon
       };
     }
 
-    const cloudflareDataCenterId = request.cf?.colo as string;
-
     let requestBody: RequestBody = {};
     let optimiseForRegions: (AWSRegion | ChinaAwsRegion)[] | undefined = undefined;
     let getResultsForCloudflareDataCenterId: string | undefined = undefined;
@@ -55,6 +53,12 @@ export async function fetchHandler(request: Request, env: Env, ctx: ExecutionCon
     } catch (error) {
     // Do nothing
     }
+
+    const cloudflareDataCenterId = request.cf?.colo as string;
+    console.log({
+      message: "received request",
+      cloudflareDataCenterId,
+    });
 
     if (getResultsForCloudflareDataCenterId) {
       const avgLatency = await env.LATENCIES_STORE.get("avg:" + getResultsForCloudflareDataCenterId, {
@@ -94,6 +98,12 @@ export async function fetchHandler(request: Request, env: Env, ctx: ExecutionCon
     }) as AvgDocument | undefined;
 
     if (avgLatency) {
+      console.log({
+        message: "found avg latency",
+        cloudflareDataCenterId,
+        avgLatencyDocument: avgLatency,
+      });
+
       const responseBody: ResponseBody = {
         results: avgLatency.results.map((res) => ({
           region: res.region,
@@ -107,8 +117,17 @@ export async function fetchHandler(request: Request, env: Env, ctx: ExecutionCon
       };
 
       if (shouldPingNewRegion(avgLatency.count)) {
+        console.log({
+          message: "uploading new latencies",
+          avgLatencyCount: avgLatency.count,
+        });
         ctx.waitUntil(uploadLatenciesToStore(cloudflareDataCenterId, env));
       }
+
+      console.log({
+        message: "returning avg latency",
+        responseBody,
+      });
 
       return {
         body: JSON.stringify(responseBody),
@@ -124,6 +143,11 @@ export async function fetchHandler(request: Request, env: Env, ctx: ExecutionCon
     });
 
     if (latenciesKeys.keys.length === 0) {
+      console.log({
+        message: "no latencies found, generating new latencies",
+        cloudflareDataCenterId,
+      });
+
       const partialResults: RegionToLatency = await pingRemainingRegions(optimiseForRegions ?? allAwsRegions);
 
       ctx.waitUntil(uploadLatenciesToStore(cloudflareDataCenterId, env, partialResults));
@@ -140,6 +164,11 @@ export async function fetchHandler(request: Request, env: Env, ctx: ExecutionCon
         sourceCode: SOURCE_CODE_URL,
       };
     } else {
+      console.log({
+        message: "found latency data in pings not yet processed",
+        cloudflareDataCenterId,
+      });
+
       const res = await env.LATENCIES_STORE.get(latenciesKeys.keys[0].name, {
         type: "json",
       }) as PingDocument;
@@ -157,6 +186,10 @@ export async function fetchHandler(request: Request, env: Env, ctx: ExecutionCon
 
       ctx.waitUntil(uploadLatenciesToStore(cloudflareDataCenterId, env));
     }
+    console.log({
+      message: "returning latency data",
+      responseBody,
+    });
 
     return {
       body: JSON.stringify(responseBody),
