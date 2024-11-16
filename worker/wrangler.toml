@@ -1,13 +1,17 @@
 #:schema node_modules/wrangler/config-schema.json
 name = "cloud-ping"
 main = "src/index.ts"
-compatibility_date = "2024-05-12"
+compatibility_date = "2024-10-04"
 compatibility_flags = ["nodejs_compat"]
-logpush = true
 
 kv_namespaces = [
     { binding = "LATENCIES_STORE", id = "9edd7eae1344433caa01cc693fb29453" }
 ]
+
+[[d1_databases]]
+binding = "DB" # available in your Worker on env.DB
+database_name = "cloud-ping"
+database_id = "04ea7aae-3cd6-4d4f-9ec8-a727ba5623e8"
 
 [observability]
 enabled = true
@@ -15,4 +19,3 @@ enabled = true
 [triggers]
 crons = ["*/10 * * * *"]
 
-tail_consumers = [{service = "cloud-ping"}]

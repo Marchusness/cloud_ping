@@ -1,8 +1,10 @@
 import { PingDocument } from "../../models/documents";
 import { RegionToLatency, pingRemainingRegions } from "../../utils/pingRemainingRegions";
 import { allAwsRegions } from "../../constants/aws";
+import { batchInsertLatencyData } from "../../services/d1/batchInsertLatencyData";
+import { putPing } from "../../services/kv/putPing";
 
-export async function uploadLatenciesToStore(
+export async function getAndUploadLatencies(
   cloudflareDataCenterId: string,
   env: Env,
   existingResults: RegionToLatency = {} as RegionToLatency,
@@ -24,9 +26,7 @@ export async function uploadLatenciesToStore(
     });
   }
 
-  const randomString = crypto.randomUUID().replaceAll("-", "");
-
-  const store: PingDocument = {
+  const pingDoc: PingDocument = {
     results,
     timestamp: Date.now(),
     cloudflareDataCenterAirportCode: cloudflareDataCenterId,
@@ -34,10 +34,11 @@ export async function uploadLatenciesToStore(
 
   console.log({
     message: "uploading ping document",
-    store,
+    pingDoc,
   });
 
-  await env.LATENCIES_STORE.put("ping:" + cloudflareDataCenterId + ":" + randomString, JSON.stringify(store));
+  await putPing(env, cloudflareDataCenterId, pingDoc);
+  await batchInsertLatencyData(env, [pingDoc]);
 
-  return store;
+  return pingDoc;
 }

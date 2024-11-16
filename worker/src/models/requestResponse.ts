@@ -1,30 +1,14 @@
-import { AWSRegion, ChinaAwsRegion } from "../constants/aws";
+import { StatsDocument } from "./documents";
 
-export type RequestBody = {
-  onNoCache: {
-    optimiseForRegions: (AWSRegion | ChinaAwsRegion)[];
-  };
-  resultsForCloudflareDataCenterId?: undefined;
-} | {
-  onNoCache?: {
-    optimiseForRegions: undefined;
-  };
-  resultsForCloudflareDataCenterId: string;
-} | {
-  onNoCache?: {
-    optimiseForRegions: undefined;
-  };
-  resultsForCloudflareDataCenterId?: undefined;
-} | undefined;
+export type RequestData = {
+  resultsForCloudflareDataCenterId?: string;
+}
 
 export type ResponseBody = {
-  results: {
-    region: (AWSRegion | ChinaAwsRegion);
-    name: string;
-    firstPingLatency: number;
-    secondPingLatency: number;
-  }[];
+  results: (StatsDocument["results"][number] & {
+    regionName: string;
+  })[];
   cloudflareDataCenterAirportCode: string;
-  averageFromPingCount: number;
+  pingCount: number;
   sourceCode: string;
 }

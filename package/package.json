@@ -1,6 +1,6 @@
 {
   "name": "cloud-ping",
-  "version": "1.0.0",
+  "version": "0.0.0",
   "description": "Calls a cloudflare api that returns quickly returns the latencies to all aws regions. ",
   "main": "index.js",
   "scripts": {

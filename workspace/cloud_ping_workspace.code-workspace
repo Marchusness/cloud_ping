@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "../workspace"
+		},
+		{
+			"path": "../worker"
+		},
+		{
+			"path": "../package"
+		}
+	],
+	"settings": {}
+}

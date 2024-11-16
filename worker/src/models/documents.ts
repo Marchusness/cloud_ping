@@ -10,11 +10,27 @@ export type PingDocument = {
   timestamp: number;
 }
 
-export type AvgDocument = {
+export type StatsDocument = {
   results: {
     region: (AWSRegion | ChinaAwsRegion);
-    firstPingLatency: number;
-    secondPingLatency: number;
+    firstPingLatency: {
+      min: number;
+      max: number;
+      avg: number;
+      stdDev: number;
+      p50: number;
+      p90: number;
+      p99: number;
+    };
+    secondPingLatency: {
+      min: number;
+      max: number;
+      avg: number;
+      stdDev: number;
+      p50: number;
+      p90: number;
+      p99: number;
+    };
   }[];
   cloudflareDataCenterAirportCode: string;
   count: number;

@@ -3,5 +3,5 @@
 
 interface Env {
   LATENCIES_STORE: KVNamespace;
-  EDGE_WATCH_API_KEY: string;
+  DB: D1Database;
 }

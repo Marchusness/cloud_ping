@@ -3,19 +3,20 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "deploy": "wrangler deploy",
+    "type-check": "tsc",
+    "deploy": "npm run type-check && wrangler deploy",
     "dev": "wrangler dev",
     "start": "wrangler dev",
     "cf-typegen": "wrangler types",
-    "lint": "eslint ./src --fix"
+    "lint": "eslint ./src --fix",
+    "createDb": "wrangler d1 execute cloud-ping --remote --file ./d1/create.sql"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20240512.0",
+    "@cloudflare/vitest-pool-workers": "^0.5.2",
+    "@cloudflare/workers-types": "^4.20241004.0",
     "eslint-config-mg-custom": "github:Marchusness/custom-lint",
-    "typescript": "^5.0.4",
-    "wrangler": "^3.0.0"
-  },
-  "dependencies": {
-    "edge-watch": "^0.0.0"
+    "typescript": "^5.5.2",
+    "vitest": "2.0.5",
+    "wrangler": "^3.87.0"
   }
 }
