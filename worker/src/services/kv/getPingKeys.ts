@@ -1,7 +1,8 @@
+import { PING } from "./prefixes";
 
 export async function getRecentlyPingedKeys(env: Env) {
   const pingKeys = await env.LATENCIES_STORE.list({
-    prefix: "ping:",
+    prefix: PING,
     limit: 800,
   });
 

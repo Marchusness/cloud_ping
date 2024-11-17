@@ -15,6 +15,9 @@ export async function batchInsertLatencyData(env: Env, pingDocuments: PingDocume
   const batch = [];
 
   for (const doc of pingDocuments) {
+    if (!doc) {
+      continue;
+    }
     for (const result of doc.results) {
       batch.push(stmt.bind(
         doc.cloudflareDataCenterAirportCode,

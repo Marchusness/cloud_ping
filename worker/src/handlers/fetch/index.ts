@@ -45,8 +45,8 @@ export async function fetchHandler(request: Request, env: Env, ctx: ExecutionCon
 
       const responseBody: ResponseBody = {
         results: analytics.results.map((res) => ({
-          ...res,
           regionName: awsRegionToName[res.region],
+          ...res,
         })).sort((a, b) => a.firstPingLatency.avg - b.firstPingLatency.avg),
         pingCount: analytics.count,
         cloudflareDataCenterAirportCode: resultsForCloudflareDataCenterId,
@@ -69,8 +69,8 @@ export async function fetchHandler(request: Request, env: Env, ctx: ExecutionCon
     if (latencyAnalytics) {
       const responseBody: ResponseBody = {
         results: latencyAnalytics.results.map((res) => ({
-          ...res,
           regionName: awsRegionToName[res.region],
+          ...res,
         })).sort((a, b) => a.firstPingLatency.avg - b.firstPingLatency.avg),
         pingCount: latencyAnalytics.count,
         cloudflareDataCenterAirportCode: cloudflareDataCenterId,
@@ -103,6 +103,7 @@ export async function fetchHandler(request: Request, env: Env, ctx: ExecutionCon
     const responseBody: ResponseBody = {
       results: pingDoc.results.map((res) => ({
         region: res.region,
+        regionName: awsRegionToName[res.region],
         firstPingLatency: {
           min: res.firstPingLatency,
           max: res.firstPingLatency,
@@ -121,7 +122,6 @@ export async function fetchHandler(request: Request, env: Env, ctx: ExecutionCon
           p90: res.secondPingLatency,
           p99: res.secondPingLatency,
         },
-        regionName: awsRegionToName[res.region],
       })).sort((a, b) => a.firstPingLatency.avg - b.firstPingLatency.avg),
       pingCount: 1,
       cloudflareDataCenterAirportCode: cloudflareDataCenterId,
