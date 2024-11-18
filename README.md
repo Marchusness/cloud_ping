@@ -1,6 +1,8 @@
 # Cloud Ping
 Simple api that returns the latency data from the closest cloudflare region to all aws regions.
 
+There is also a basic webpage for viewing all latency data at https://marchusness.github.io/cloud_ping/web/
+
 ### How it works
 The api will get the cloudflare data center code from the worker handling the request using `request.cf?.colo`. The KV is checked to see if the latency data has been calculated and cached for the current cloudflare data center code. The API will return the latency stats that was stored. After the request returned the stats, the worker will ping all aws regions and update the D1 with the first and second latency ping. A cron job runs every 10 minutes to calculate the latency stats from d1 and store the stats in KV.
 
