@@ -1,11 +1,15 @@
-import {
-  AWSRegion, ChinaAwsRegion, chinaAwsRegions
-} from "../constants/aws";
+import { AWSRegion, ChinaAwsRegion } from "../constants/aws";
+
+function getEndpoint(region: AWSRegion | ChinaAwsRegion): string {
+  if (region.startsWith("cn-")) {
+    return `http://dynamodb.${region}.amazonaws.com.cn/ping`;
+  }
+
+  return `http://dynamodb.${region}.amazonaws.com/ping`;
+}
 
 export async function ping(region: (AWSRegion | ChinaAwsRegion)) {
-  const url = chinaAwsRegions.includes(region as ChinaAwsRegion) ?
-    `http://dynamodb.${region}.amazonaws.com.cn/ping` :
-    `http://dynamodb.${region}.amazonaws.com/ping`;
+  const url = getEndpoint(region);
 
   const start = performance.now();
   await fetch(url);

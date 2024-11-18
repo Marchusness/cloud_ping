@@ -9,7 +9,8 @@
     "start": "wrangler dev",
     "cf-typegen": "wrangler types",
     "lint": "eslint ./src --fix",
-    "createDb": "wrangler d1 execute cloud-ping --remote --file ./d1/create.sql"
+    "createDb": "wrangler d1 execute cloud-ping --remote --file ./d1/create.sql",
+    "deleteSyd": "wrangler d1 execute cloud-ping --remote --command \"DELETE FROM latencyData WHERE from_airport_code = 'SYD';\""
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.5.2",
