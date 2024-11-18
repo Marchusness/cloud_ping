@@ -47,7 +47,7 @@ export async function fetchHandler(request: Request, env: Env, ctx: ExecutionCon
         results: analytics.results.map((res) => ({
           regionName: awsRegionToName[res.region],
           ...res,
-        })).sort((a, b) => a.firstPingLatency.avg - b.firstPingLatency.avg),
+        })).sort((a, b) => a.secondPingLatency.avg - b.secondPingLatency.avg),
         pingCount: analytics.count,
         cloudflareDataCenterAirportCode: resultsForCloudflareDataCenterId,
         sourceCode: SOURCE_CODE_URL,
@@ -71,7 +71,7 @@ export async function fetchHandler(request: Request, env: Env, ctx: ExecutionCon
         results: latencyAnalytics.results.map((res) => ({
           regionName: awsRegionToName[res.region],
           ...res,
-        })).sort((a, b) => a.firstPingLatency.avg - b.firstPingLatency.avg),
+        })).sort((a, b) => a.secondPingLatency.avg - b.secondPingLatency.avg),
         pingCount: latencyAnalytics.count,
         cloudflareDataCenterAirportCode: cloudflareDataCenterId,
         sourceCode: SOURCE_CODE_URL,
@@ -122,7 +122,7 @@ export async function fetchHandler(request: Request, env: Env, ctx: ExecutionCon
           p90: res.secondPingLatency,
           p99: res.secondPingLatency,
         },
-      })).sort((a, b) => a.firstPingLatency.avg - b.firstPingLatency.avg),
+      })).sort((a, b) => a.secondPingLatency.avg - b.secondPingLatency.avg),
       pingCount: 1,
       cloudflareDataCenterAirportCode: cloudflareDataCenterId,
       sourceCode: SOURCE_CODE_URL,

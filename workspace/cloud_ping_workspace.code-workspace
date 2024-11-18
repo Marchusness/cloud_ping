@@ -4,11 +4,16 @@
 			"path": "../workspace"
 		},
 		{
+			"path": "../web"
+		},
+		{
 			"path": "../worker"
 		},
 		{
 			"path": "../package"
 		}
 	],
-	"settings": {}
+	"settings": {
+		"liveServer.settings.multiRootWorkspaceName": "web"
+	}
 }
