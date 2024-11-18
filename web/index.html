@@ -223,7 +223,7 @@
         let columns = [];
         let matrixData = new Map();
         let currentStat = 'avg';
-        let currentPing = 'firstPingLatency';
+        let currentPing = 'secondPingLatency';
 
         async function fetchData(region) {
             try {
@@ -242,12 +242,11 @@
         }
 
         function getColorForValue(value, minVal, maxVal) {
-            const ratio = (value - minVal) / (maxVal - minVal);
-            if (ratio < 0.1) {
+            if (value < 70) {
                 return `rgba(0, 255, 0, 0.6)`; // Green
-            } else if (ratio < 0.2) {
+            } else if (value < 150) {
                 return `rgba(255, 255, 0, 0.6)`; // Yellow
-            } else if (ratio < 0.4) {
+            } else if (value < 500) {
                 return `rgba(255, 165, 0, 0.6)`; // Orange
             } else {
                 return `rgba(255, 0, 0, 0.6)`; // Red
