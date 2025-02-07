@@ -95,10 +95,73 @@
       .controls label {
         margin-right: 5px;
       }
+
+      .region-list {
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 10px;
+        background: white;
+        width: 100%;
+      }
+
+      .region-list label {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 8px;
+        margin: 2px;
+        cursor: pointer;
+        min-width: 120px;
+      }
+
+      #awsRegions {
+        display: flex;
+        flex-flow: row wrap;
+        gap: 4px;
+      }
+
+      .region-list label:hover {
+        background-color: #f5f5f5;
+      }
+
+      .region-list input[type="checkbox"] {
+        margin-right: 8px;
+      }
+
+      .select-all {
+        margin-bottom: 8px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #ddd;
+        width: 100%;
+      }
+
+      .lowest-in-row {
+        border: 2px solid #0066cc !important;
+      }
     </style>
   </head>
   <body>
     <h1>Cloud Latency Matrix</h1>
+    <div style="margin-bottom: 20px">
+      <a
+        href="https://github.com/Marchusness/cloud_ping"
+        target="_blank"
+        style="color: #0066cc; text-decoration: none"
+      >
+        View on GitHub
+        <svg
+          height="16"
+          width="16"
+          style="vertical-align: middle; margin-left: 4px"
+          viewBox="0 0 16 16"
+          version="1.1"
+        >
+          <path
+            fill="currentColor"
+            d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"
+          ></path>
+        </svg>
+      </a>
+    </div>
     <div class="controls">
       <label for="statSelect">Statistic:</label>
       <select id="statSelect">
@@ -114,6 +177,18 @@
         <option value="firstPingLatency">First Ping</option>
         <option default value="secondPingLatency">Second Ping</option>
       </select>
+    </div>
+    <div class="controls">
+      <label>AWS Regions:</label>
+      <div class="region-list">
+        <div class="select-all">
+          <label>
+            <input type="checkbox" id="selectAll" />
+            Select All
+          </label>
+        </div>
+        <div id="awsRegions"></div>
+      </div>
     </div>
     <div class="controls">
       <label for="yellowThreshold">Yellow Threshold (ms):</label>
@@ -251,6 +326,7 @@
       ];
 
       let columns = [];
+      let selectedAwsRegions = [];
       let matrixData = new Map();
       let currentStat = "avg";
       let currentPing = "firstPingLatency";
@@ -307,38 +383,66 @@
         matrix.style.display = "table";
         loading.style.display = "none";
 
+        // Use selected AWS regions or all regions if none selected
+        const displayColumns =
+          selectedAwsRegions.length > 0 ? selectedAwsRegions : columns;
+
         // Create header row
         let headerRow = "<tr><th>Cloudflare DC</th>";
-        columns.forEach((region) => {
+        headerRow += "<th>Lowest Latency</th>";
+        displayColumns.forEach((region) => {
           headerRow += `<th>${region}</th>`;
         });
         headerRow += "</tr>";
-
         // Create data rows
-        let rows = "";
+        let rowHtml = "";
         let allValues = [];
 
         matrixData.forEach((data, cfRegion) => {
-          rows += `<tr><th>${cfRegion}</th>`;
-          columns.forEach((awsRegion) => {
+          rowHtml += `<tr><th>${cfRegion}</th>`;
+          let regions = "";
+          const rowValues = [];
+          displayColumns.forEach((awsRegion) => {
             const value = data.results[awsRegion][currentPing][currentStat];
+            rowValues.push(value);
             allValues.push(value);
-            rows += `<td class="cell">${value.toFixed(1)}</td>`;
+            regions += `<td class="cell">${value.toFixed(1)}</td>`;
           });
-          rows += "</tr>";
+          // Add lowest latency column
+          const lowestLatency = Math.min(...rowValues);
+          rowHtml += `<td class="cell lowest-latency">${lowestLatency.toFixed(
+            1
+          )}</td>`;
+
+          rowHtml += regions + "</tr>";
         });
 
         // Calculate min/max for color scaling
         const minVal = Math.min(...allValues);
         const maxVal = Math.max(...allValues);
 
-        matrix.innerHTML = headerRow + rows;
+        matrix.innerHTML = headerRow + rowHtml;
 
-        // Apply colors
-        const cells = matrix.getElementsByClassName("cell");
-        Array.from(cells).forEach((cell) => {
-          const value = parseFloat(cell.textContent);
-          cell.style.backgroundColor = getColorForValue(value);
+        // Apply colors and highlight lowest values
+        const rows = matrix.getElementsByTagName("tr");
+        Array.from(rows).forEach((row, index) => {
+          if (index === 0) return; // Skip header row
+
+          const cells = row.getElementsByClassName("cell");
+          const cellValues = Array.from(cells).map((cell) =>
+            parseFloat(cell.textContent)
+          );
+          const lowestInRow = Math.min(...cellValues);
+
+          Array.from(cells).forEach((cell, cellIndex) => {
+            const value = parseFloat(cell.textContent);
+            cell.style.backgroundColor = getColorForValue(value);
+
+            // Skip the "Lowest Latency" column (index 0) when highlighting lowest values
+            if (cellIndex > 0 && value === lowestInRow) {
+              cell.classList.add("lowest-in-row");
+            }
+          });
         });
       }
 
@@ -355,7 +459,49 @@
             )
           );
 
-          columns = Object.keys(Array.from(matrixData.values())[0].results);
+          columns = Object.keys(
+            Array.from(matrixData.values())[0].results
+          ).sort();
+
+          // Populate AWS regions checkboxes
+          const awsRegionsDiv = document.getElementById("awsRegions");
+          columns.forEach((region) => {
+            const label = document.createElement("label");
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.value = region;
+            checkbox.id = `region-${region}`;
+            label.appendChild(checkbox);
+            label.appendChild(document.createTextNode(region));
+            awsRegionsDiv.appendChild(label);
+          });
+
+          // Add select all functionality
+          const selectAll = document.getElementById("selectAll");
+          const checkboxes = document.querySelectorAll(
+            "#awsRegions input[type='checkbox']"
+          );
+
+          selectAll.addEventListener("change", (e) => {
+            checkboxes.forEach((checkbox) => {
+              checkbox.checked = e.target.checked;
+            });
+            updateSelectedRegions();
+          });
+
+          // Add event listeners to all checkboxes
+          checkboxes.forEach((checkbox) => {
+            checkbox.addEventListener("change", () => {
+              updateSelectedRegions();
+              // Update select all checkbox
+              selectAll.checked = Array.from(checkboxes).every(
+                (cb) => cb.checked
+              );
+              selectAll.indeterminate =
+                Array.from(checkboxes).some((cb) => cb.checked) &&
+                !Array.from(checkboxes).every((cb) => cb.checked);
+            });
+          });
 
           updateMatrix();
         } catch (error) {
@@ -365,6 +511,14 @@
           document.getElementById("error").style.display = "block";
           document.getElementById("loading").style.display = "none";
         }
+      }
+
+      function updateSelectedRegions() {
+        const checkboxes = document.querySelectorAll(
+          "#awsRegions input[type='checkbox']:checked"
+        );
+        selectedAwsRegions = Array.from(checkboxes).map((cb) => cb.value);
+        updateMatrix();
       }
 
       // Add event listeners
