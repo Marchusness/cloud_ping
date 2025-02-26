@@ -24,11 +24,17 @@ export async function fetchHandler(request: Request, env: Env, ctx: ExecutionCon
       };
     }
 
+    const cloudflareDataCenterId = request.cf?.colo as string;
+
     const {
       resultsForCloudflareDataCenterId,
     } = extractRequestData(request);
 
     if (resultsForCloudflareDataCenterId) {
+      if (shouldPingNewRegion()) {
+        ctx.waitUntil(getAndUploadLatencies(cloudflareDataCenterId, env));
+      }
+
       const analytics = await getCachedStats(env, resultsForCloudflareDataCenterId);
       if (!analytics) {
         return {
@@ -61,8 +67,6 @@ export async function fetchHandler(request: Request, env: Env, ctx: ExecutionCon
         },
       };
     }
-
-    const cloudflareDataCenterId = request.cf?.colo as string;
 
     const latencyAnalytics = await getCachedStats(env, cloudflareDataCenterId);
 

@@ -1,15 +1,7 @@
 import { AWSRegion, ChinaAwsRegion } from "../constants/aws";
+import { parallelProcessor } from "./parallelProcessor";
 import { ping } from "./ping";
-
-export function chunkArray<T>(array: T[], chunkSize: number): T[][] {
-  const chunkedArray = [];
-
-  for (let i = 0; i < array.length; i += chunkSize) {
-    chunkedArray.push(array.slice(i, i + chunkSize));
-  }
-
-  return chunkedArray;
-}
+import { shuffleArray } from "./shuffleArray";
 
 export type RegionToLatency = Record<AWSRegion | ChinaAwsRegion, {
   firstPingLatency: number;
@@ -22,15 +14,15 @@ export async function pingRemainingRegions(
 ) {
   const results = {} as RegionToLatency;
 
-  for (const regionChunk of chunkArray(regions, 3)) {
-    await Promise.all(regionChunk.map(async (region) => {
-      if (existingResults[region] !== undefined) {
-        results[region] = existingResults[region];
-      } else {
-        results[region] = await ping(region);
-      }
-    }));
-  }
+  const shuffledRegions = shuffleArray(regions);
+
+  await parallelProcessor(shuffledRegions, async (region) => {
+    if (existingResults[region] !== undefined) {
+      results[region] = existingResults[region];
+    } else {
+      results[region] = await ping(region);
+    }
+  }, 3);
 
   return results;
 }
