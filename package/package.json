@@ -1,11 +1,30 @@
 {
   "name": "cloud-ping",
-  "version": "0.0.0",
-  "description": "Calls a cloudflare api that returns quickly returns the latencies to all aws regions. ",
-  "main": "index.js",
+  "version": "0.0.3",
+  "description": "Calls a cloudflare api that returns the latencies from the current cloudflare location to all aws regions. ",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Marchusness/cloud_ping.git"
+  },
+  "homepage": "https://github.com/Marchusness/cloud_ping",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.mjs",
+      "require": "./index.js"
+    }
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsup",
+    "deploy": "npm run build && cp package.json dist/package.json && cp README.md dist/README.md && cd dist && npm publish"
   },
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "files": [
+    "**/*"
+  ],
+  "devDependencies": {
+    "tsup": "^8.3.6",
+    "typescript": "^5.7.3"
+  }
 }
