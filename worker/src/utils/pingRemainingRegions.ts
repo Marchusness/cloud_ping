@@ -22,7 +22,7 @@ export async function pingRemainingRegions(
     } else {
       results[region] = await ping(region);
     }
-  }, 3);
+  }, 4);
 
   return results;
 }
