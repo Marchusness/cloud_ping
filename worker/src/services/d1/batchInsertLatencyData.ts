@@ -28,7 +28,7 @@ export async function batchInsertLatencyData(env: Env, pingDocuments: PingDocume
         result.secondPingLatency,
         doc.timestamp,
         result.pingOrder ?? null,
-        doc.results.length,
+        doc.regionsInRun ?? doc.results.length,
       ));
     }
   }

@@ -404,7 +404,11 @@
           let regions = "";
           const rowValues = [];
           displayColumns.forEach((awsRegion) => {
-            const value = data.results[awsRegion][currentPing][currentStat];
+            const value = data.results[awsRegion]?.[currentPing]?.[currentStat];
+            if (typeof value !== "number") {
+              regions += `<td class="missing">-</td>`;
+              return;
+            }
             rowValues.push(value);
             allValues.push(value);
             regions += `<td class="cell">${value.toFixed(1)}</td>`;

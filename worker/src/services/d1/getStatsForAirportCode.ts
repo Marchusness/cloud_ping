@@ -87,5 +87,12 @@ export async function getStatsForAirportCode(env: Env, airportCode: string) {
     return null;
   }
 
-  return JSON.parse(result.result) as StatsDocument;
+  const stats = JSON.parse(result.result) as StatsDocument;
+
+  // An airport with no rows still produces an empty aggregate row
+  if (stats.results.length === 0) {
+    return null;
+  }
+
+  return stats;
 }

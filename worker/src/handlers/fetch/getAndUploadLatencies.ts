@@ -1,7 +1,7 @@
 import { PingDocument } from "../../models/documents";
 import { allAwsRegions } from "../../constants/aws";
 import { batchInsertLatencyData } from "../../services/d1/batchInsertLatencyData";
-import { getCachedStats } from "../../services/kv/getCachedStats";
+import { hasLatencyData } from "../../services/d1/hasLatencyData";
 import { pingRegions } from "../../utils/pingRegions";
 import { putPing } from "../../services/kv/putPing";
 import { shuffleArray } from "../../utils/shuffleArray";
@@ -11,21 +11,14 @@ import { shuffleArray } from "../../utils/shuffleArray";
 const SAMPLED_REGION_COUNT = 5;
 const ALL_REGIONS_CONCURRENCY = 4;
 
-async function hasDataForAllRegions(env: Env, cloudflareDataCenterId: string) {
-  const stats = await getCachedStats(env, cloudflareDataCenterId);
-  if (!stats) {
-    return false;
-  }
-
-  const regionsWithData = new Set(stats.results.map((res) => res.region));
-  return allAwsRegions.every((region) => regionsWithData.has(region));
-}
-
 export async function getAndUploadLatencies(
   cloudflareDataCenterId: string,
   env: Env,
 ) {
-  const pingAllRegions = !await hasDataForAllRegions(env, cloudflareDataCenterId);
+  // D1 is checked rather than the cached stats so a purged airport gets every region again.
+  // Regions that failed in the first run are filled in by later sampled runs, so a region that
+  // is unreachable from this data center doesn't force every run to ping all regions
+  const pingAllRegions = !await hasLatencyData(env, cloudflareDataCenterId);
 
   const shuffledRegions = shuffleArray(allAwsRegions);
   const regions = pingAllRegions ? shuffledRegions : shuffledRegions.slice(0, SAMPLED_REGION_COUNT);
@@ -33,10 +26,15 @@ export async function getAndUploadLatencies(
   // Sampled regions are pinged one at a time so ping_order reflects a clean sequence
   const results = await pingRegions(regions, pingAllRegions ? ALL_REGIONS_CONCURRENCY : 1);
 
+  if (results.length === 0) {
+    throw new Error(`All pings failed for ${cloudflareDataCenterId}`);
+  }
+
   const pingDoc: PingDocument = {
     results,
     timestamp: Date.now(),
     cloudflareDataCenterAirportCode: cloudflareDataCenterId,
+    regionsInRun: regions.length,
   };
 
   console.log({
@@ -45,8 +43,9 @@ export async function getAndUploadLatencies(
     pingDoc,
   });
 
-  await putPing(env, cloudflareDataCenterId, pingDoc);
+  // Insert into D1 first so a failed insert doesn't leave a ping key for the cron with no rows behind it
   await batchInsertLatencyData(env, [pingDoc]);
+  await putPing(env, cloudflareDataCenterId, pingDoc);
 
   return pingDoc;
 }

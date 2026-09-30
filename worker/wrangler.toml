@@ -12,6 +12,7 @@ kv_namespaces = [
 binding = "DB" # available in your Worker on env.DB
 database_name = "cloud-ping"
 database_id = "04ea7aae-3cd6-4d4f-9ec8-a727ba5623e8"
+migrations_dir = "d1/migrations"
 
 [observability]
 enabled = true
