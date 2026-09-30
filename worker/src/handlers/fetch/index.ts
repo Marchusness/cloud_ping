@@ -9,10 +9,11 @@ import { getStatsForAirportCode } from "../../services/d1/getStatsForAirportCode
 import { putStats } from "../../services/kv/putStats";
 import { shouldPingNewRegion } from "./shouldPingNewRegion";
 
-async function getAndCacheStatsFromD1(env: Env, airportCode: string) {
+async function getAndCacheStatsFromD1(env: Env, ctx: ExecutionContext, airportCode: string) {
   const stats = await getStatsForAirportCode(env, airportCode);
   if (stats) {
-    await putStats(env, airportCode, stats);
+    // Not awaited, concurrent requests can hit the KV per-key write limit and the stats are already computed
+    ctx.waitUntil(putStats(env, airportCode, stats).catch(console.error));
   }
   return stats;
 }
@@ -80,7 +81,7 @@ export async function fetchHandler(request: Request, env: Env, ctx: ExecutionCon
     // Before the cron has cached stats, build them from D1 so an airport that has
     // only had its first full run doesn't show single sampled runs
     const latencyAnalytics = await getCachedStats(env, cloudflareDataCenterId) ??
-      await getAndCacheStatsFromD1(env, cloudflareDataCenterId);
+      await getAndCacheStatsFromD1(env, ctx, cloudflareDataCenterId);
 
     if (latencyAnalytics) {
       const responseBody: ResponseBody = {
