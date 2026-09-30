@@ -8,17 +8,20 @@ function getEndpoint(region: AWSRegion | ChinaAwsRegion): string {
   return `http://dynamodb.${region}.amazonaws.com/ping`;
 }
 
+async function timedFetch(url: string) {
+  const start = performance.now();
+  const response = await fetch(url);
+  // Read the body so the connection is released (and can be reused by the next ping)
+  // instead of being held open until it is garbage collected
+  await response.arrayBuffer();
+  return performance.now() - start;
+}
+
 export async function ping(region: (AWSRegion | ChinaAwsRegion)) {
   const url = getEndpoint(region);
 
-  const start = performance.now();
-  await fetch(url);
-  const middle = performance.now();
-  await fetch(url);
-  const end = performance.now();
-
-  const firstPingLatency = middle - start;
-  const secondPingLatency = end - middle;
+  const firstPingLatency = await timedFetch(url);
+  const secondPingLatency = await timedFetch(url);
 
   return {
     firstPingLatency,

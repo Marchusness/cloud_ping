@@ -1,6 +1,7 @@
 import { StatsDocument } from "../../models/documents";
 
 export async function getStatsForAirportCode(env: Env, airportCode: string) {
+  // Regions are sampled per run so sample sizes differ per region, count is the smallest one
   const stmt = env.DB.prepare(`
         WITH PercentilePrep AS (
           SELECT 
@@ -72,7 +73,7 @@ export async function getStatsForAirportCode(env: Env, airportCode: string) {
               )
             ),
             'cloudflareDataCenterAirportCode', ?,
-            'count', p.region_count
+            'count', MIN(p.region_count)
           ) as result
         FROM StatsPerRegion s
         JOIN Percentiles p ON s.to_aws_region = p.to_aws_region;

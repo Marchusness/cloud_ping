@@ -10,6 +10,8 @@
     "cf-typegen": "wrangler types",
     "lint": "eslint ./src --fix",
     "createDb": "wrangler d1 execute cloud-ping --remote --file ./d1/create.sql",
+    "migrateAddPingOrder": "wrangler d1 execute cloud-ping --remote --file ./d1/migrations/0001_add_ping_order.sql",
+    "purgeDb": "wrangler d1 execute cloud-ping --remote --command \"DELETE FROM latencyData;\"",
     "deleteSyd": "wrangler d1 execute cloud-ping --remote --command \"DELETE FROM latencyData WHERE from_airport_code = 'SYD';\"",
     "test": "vitest run",
     "test:watch": "vitest"

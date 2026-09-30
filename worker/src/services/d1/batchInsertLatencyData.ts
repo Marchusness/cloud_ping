@@ -7,9 +7,11 @@ export async function batchInsertLatencyData(env: Env, pingDocuments: PingDocume
       to_aws_region,
       first_ping_latency,
       second_ping_latency,
-      timestamp
+      timestamp,
+      ping_order,
+      regions_in_run
     )
-    VALUES (?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
 
   const batch = [];
@@ -25,6 +27,8 @@ export async function batchInsertLatencyData(env: Env, pingDocuments: PingDocume
         result.firstPingLatency,
         result.secondPingLatency,
         doc.timestamp,
+        result.pingOrder ?? null,
+        doc.results.length,
       ));
     }
   }
