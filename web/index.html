@@ -173,11 +173,6 @@
         <option value="p99">99th Percentile</option>
         <option value="stdDev">Standard Deviation</option>
       </select>
-      <label for="pingSelect">Ping Type:</label>
-      <select id="pingSelect">
-        <option value="firstPingLatency">First Ping</option>
-        <option default value="secondPingLatency">Second Ping</option>
-      </select>
     </div>
     <div class="controls">
       <label>AWS Regions:</label>
@@ -330,7 +325,7 @@
       let selectedAwsRegions = [];
       let matrixData = new Map();
       let currentStat = "avg";
-      let currentPing = "firstPingLatency";
+      const currentPing = "secondPingLatency";
       let yellowThreshold = 70;
       let orangeThreshold = 150;
       let redThreshold = 500;
@@ -538,11 +533,6 @@
       // Add event listeners
       document.getElementById("statSelect").addEventListener("change", (e) => {
         currentStat = e.target.value;
-        updateMatrix();
-      });
-
-      document.getElementById("pingSelect").addEventListener("change", (e) => {
-        currentPing = e.target.value;
         updateMatrix();
       });
 

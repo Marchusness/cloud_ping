@@ -78,8 +78,8 @@ export async function fetchHandler(request: Request, env: Env, ctx: ExecutionCon
       };
     }
 
-    // Before the cron has cached stats, build them from D1 so an airport that has
-    // only had its first full run doesn't show single sampled runs
+    // Before the cron has cached stats, build them from D1 so a new airport shows
+    // every run so far rather than only the one it just did
     const latencyAnalytics = await getCachedStats(env, cloudflareDataCenterId) ??
       await getAndCacheStatsFromD1(env, ctx, cloudflareDataCenterId);
 
@@ -115,15 +115,6 @@ export async function fetchHandler(request: Request, env: Env, ctx: ExecutionCon
       results: pingDoc.results.map((res) => ({
         region: res.region,
         regionName: awsRegionToName[res.region],
-        firstPingLatency: {
-          min: res.firstPingLatency,
-          max: res.firstPingLatency,
-          avg: res.firstPingLatency,
-          stdDev: 0,
-          p50: res.firstPingLatency,
-          p90: res.firstPingLatency,
-          p99: res.firstPingLatency,
-        },
         secondPingLatency: {
           min: res.secondPingLatency,
           max: res.secondPingLatency,

@@ -24,6 +24,7 @@ async function timedFetch(url: string) {
 export async function ping(region: (AWSRegion | ChinaAwsRegion)) {
   const url = getEndpoint(region);
 
+  // Only the second ping is used for stats, the first includes the DNS lookup and connection setup
   const firstPingLatency = await timedFetch(url);
   const secondPingLatency = await timedFetch(url);
 
