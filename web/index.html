@@ -414,10 +414,14 @@
             regions += `<td class="cell">${value.toFixed(1)}</td>`;
           });
           // Add lowest latency column
-          const lowestLatency = Math.min(...rowValues);
-          rowHtml += `<td class="cell lowest-latency">${lowestLatency.toFixed(
-            1
-          )}</td>`;
+          if (rowValues.length === 0) {
+            rowHtml += `<td class="missing">-</td>`;
+          } else {
+            const lowestLatency = Math.min(...rowValues);
+            rowHtml += `<td class="cell lowest-latency">${lowestLatency.toFixed(
+              1
+            )}</td>`;
+          }
 
           rowHtml += regions + "</tr>";
         });
@@ -464,8 +468,13 @@
             )
           );
 
-          columns = Object.keys(
-            Array.from(matrixData.values())[0].results
+          // Union of regions across every data center, as some may be missing regions
+          columns = Array.from(
+            new Set(
+              Array.from(matrixData.values()).flatMap((data) =>
+                Object.keys(data.results)
+              )
+            )
           ).sort();
 
           // Populate AWS regions checkboxes

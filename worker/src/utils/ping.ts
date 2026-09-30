@@ -1,6 +1,6 @@
 import { AWSRegion, ChinaAwsRegion } from "../constants/aws";
 
-const PING_TIMEOUT_MS = 10_000;
+const PING_TIMEOUT_MS = 5_000;
 
 function getEndpoint(region: AWSRegion | ChinaAwsRegion): string {
   if (region.startsWith("cn-")) {
