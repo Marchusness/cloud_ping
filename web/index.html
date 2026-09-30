@@ -173,11 +173,6 @@
         <option value="p99">99th Percentile</option>
         <option value="stdDev">Standard Deviation</option>
       </select>
-      <label for="pingSelect">Ping Type:</label>
-      <select id="pingSelect">
-        <option value="firstPingLatency">First Ping</option>
-        <option default value="secondPingLatency">Second Ping</option>
-      </select>
     </div>
     <div class="controls">
       <label>AWS Regions:</label>
@@ -330,7 +325,7 @@
       let selectedAwsRegions = [];
       let matrixData = new Map();
       let currentStat = "avg";
-      let currentPing = "firstPingLatency";
+      const currentPing = "secondPingLatency";
       let yellowThreshold = 70;
       let orangeThreshold = 150;
       let redThreshold = 500;
@@ -404,16 +399,24 @@
           let regions = "";
           const rowValues = [];
           displayColumns.forEach((awsRegion) => {
-            const value = data.results[awsRegion][currentPing][currentStat];
+            const value = data.results[awsRegion]?.[currentPing]?.[currentStat];
+            if (typeof value !== "number") {
+              regions += `<td class="missing">-</td>`;
+              return;
+            }
             rowValues.push(value);
             allValues.push(value);
             regions += `<td class="cell">${value.toFixed(1)}</td>`;
           });
           // Add lowest latency column
-          const lowestLatency = Math.min(...rowValues);
-          rowHtml += `<td class="cell lowest-latency">${lowestLatency.toFixed(
-            1
-          )}</td>`;
+          if (rowValues.length === 0) {
+            rowHtml += `<td class="missing">-</td>`;
+          } else {
+            const lowestLatency = Math.min(...rowValues);
+            rowHtml += `<td class="cell lowest-latency">${lowestLatency.toFixed(
+              1
+            )}</td>`;
+          }
 
           rowHtml += regions + "</tr>";
         });
@@ -460,8 +463,13 @@
             )
           );
 
-          columns = Object.keys(
-            Array.from(matrixData.values())[0].results
+          // Union of regions across every data center, as some may be missing regions
+          columns = Array.from(
+            new Set(
+              Array.from(matrixData.values()).flatMap((data) =>
+                Object.keys(data.results)
+              )
+            )
           ).sort();
 
           // Populate AWS regions checkboxes
@@ -525,11 +533,6 @@
       // Add event listeners
       document.getElementById("statSelect").addEventListener("change", (e) => {
         currentStat = e.target.value;
-        updateMatrix();
-      });
-
-      document.getElementById("pingSelect").addEventListener("change", (e) => {
-        currentPing = e.target.value;
         updateMatrix();
       });
 

@@ -5,8 +5,18 @@ import { corsWrapper } from "../../utils/corsWrapper";
 import { extractRequestData } from "./extractRequestDataFromQuery";
 import { getAndUploadLatencies } from "./getAndUploadLatencies";
 import { getCachedStats } from "../../services/kv/getCachedStats";
-import { getSinglePing } from "../../services/kv/getSinglePing";
+import { getStatsForAirportCode } from "../../services/d1/getStatsForAirportCode";
+import { putStats } from "../../services/kv/putStats";
 import { shouldPingNewRegion } from "./shouldPingNewRegion";
+
+async function getAndCacheStatsFromD1(env: Env, ctx: ExecutionContext, airportCode: string) {
+  const stats = await getStatsForAirportCode(env, airportCode);
+  if (stats) {
+    // Not awaited, concurrent requests can hit the KV per-key write limit and the stats are already computed
+    ctx.waitUntil(putStats(env, airportCode, stats).catch(console.error));
+  }
+  return stats;
+}
 
 export async function fetchHandler(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   return await corsWrapper(async () => {
@@ -68,7 +78,10 @@ export async function fetchHandler(request: Request, env: Env, ctx: ExecutionCon
       };
     }
 
-    const latencyAnalytics = await getCachedStats(env, cloudflareDataCenterId);
+    // Before the cron has cached stats, build them from D1 so a new airport shows
+    // every run so far rather than only the one it just did
+    const latencyAnalytics = await getCachedStats(env, cloudflareDataCenterId) ??
+      await getAndCacheStatsFromD1(env, ctx, cloudflareDataCenterId);
 
     if (latencyAnalytics) {
       const responseBody: ResponseBody = {
@@ -91,32 +104,17 @@ export async function fetchHandler(request: Request, env: Env, ctx: ExecutionCon
       };
     }
 
-    let pingDoc = await getSinglePing(env, cloudflareDataCenterId);
+    console.log({
+      message: "no latencies found, generating new latencies",
+      cloudflareDataCenterId,
+    });
 
-    if (!pingDoc) {
-      console.log({
-        message: "no latencies found, generating new latencies",
-        cloudflareDataCenterId,
-      });
-
-      pingDoc = await getAndUploadLatencies(cloudflareDataCenterId, env);
-    } else {
-      ctx.waitUntil(getAndUploadLatencies(cloudflareDataCenterId, env));
-    }
+    const pingDoc = await getAndUploadLatencies(cloudflareDataCenterId, env);
 
     const responseBody: ResponseBody = {
       results: pingDoc.results.map((res) => ({
         region: res.region,
         regionName: awsRegionToName[res.region],
-        firstPingLatency: {
-          min: res.firstPingLatency,
-          max: res.firstPingLatency,
-          avg: res.firstPingLatency,
-          stdDev: 0,
-          p50: res.firstPingLatency,
-          p90: res.firstPingLatency,
-          p99: res.firstPingLatency,
-        },
         secondPingLatency: {
           min: res.secondPingLatency,
           max: res.secondPingLatency,

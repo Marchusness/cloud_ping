@@ -4,7 +4,7 @@ Simple api that returns the latency data from the closest cloudflare region to a
 There is also a basic webpage for viewing all latency data at https://marchusness.github.io/cloud_ping/web/
 
 ### How it works
-The api will get the cloudflare data center code from the worker handling the request using `request.cf?.colo`. The KV is checked to see if the latency data has been calculated and cached for the current cloudflare data center code. The API will return the latency stats that was stored. After the request returned the stats, the worker will ping all aws regions and update the D1 with the first and second latency ping. A cron job runs every 10 minutes to calculate the latency stats from d1 and store the stats in KV.
+The api will get the cloudflare data center code from the worker handling the request using `request.cf?.colo`. The KV is checked to see if the latency data has been calculated and cached for the current cloudflare data center code. The API will return the latency stats that was stored. After the request returned the stats, the worker will ping 5 aws regions one after another and update the D1 with the first and second latency ping (only the second is used for stats, as the first includes the DNS lookup and connection setup), along with the order each region was pinged in (`ping_order`). Regions that don't have data for that data center yet are picked first, the rest are picked at random. A cron job runs every 10 minutes to calculate the latency stats from d1 and store the stats in KV.
 
 ### API
 ```
@@ -21,16 +21,7 @@ type AnalyticDocument = {
   results: {
     region: (AWSRegion | ChinaAwsRegion);
     regionName: string;
-    firstPingAnalytics: {
-      min: number;
-      max: number;
-      avg: number;
-      stdDev: number;
-      p50: number;
-      p90: number;
-      p99: number;
-    };
-    secondPingAnalytics: {
+    secondPingLatency: {
       min: number;
       max: number;
       avg: number;
@@ -62,14 +53,14 @@ export default {
     const data = await response.json() as {
       results: {
         region: string;
-        secondPingAnalytics: {
+        secondPingLatency: {
           avg: number;
         };
       }[];
     };
 
     const closestRegion = data.results
-      .sort((a, b) => a.secondPingAnalytics.avg - b.secondPingAnalytics.avg)
+      .sort((a, b) => a.secondPingLatency.avg - b.secondPingLatency.avg)
       .filter((res) => AWS_REGION_TO_ENDPOINT[res.region])[0];
 
     const closestRegionEndpoint = AWS_REGION_TO_ENDPOINT[closestRegion.region] ?? DEFAULT_ENDPOINT;

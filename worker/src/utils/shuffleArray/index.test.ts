@@ -34,4 +34,13 @@ describe("shuffleArray", () => {
     const result = shuffleArray(input);
     expect(result).toEqual([1]);
   });
+
+  it("should be able to place every element in every position", () => {
+    const input = [1, 2, 3];
+    const seen = input.map(() => new Set<number>());
+    for (let run = 0; run < 1000; run++) {
+      shuffleArray(input).forEach((value, index) => seen[index].add(value));
+    }
+    seen.forEach((values) => expect(values.size).toBe(input.length));
+  });
 });

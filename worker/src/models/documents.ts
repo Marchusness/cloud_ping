@@ -5,6 +5,8 @@ export type PingDocument = {
     region: (AWSRegion | ChinaAwsRegion);
     firstPingLatency: number;
     secondPingLatency: number;
+    // Optional as ping documents written before ping order was recorded don't have it
+    pingOrder?: number;
   }[];
   cloudflareDataCenterAirportCode: string;
   timestamp: number;
@@ -13,15 +15,6 @@ export type PingDocument = {
 export type StatsDocument = {
   results: {
     region: (AWSRegion | ChinaAwsRegion);
-    firstPingLatency: {
-      min: number;
-      max: number;
-      avg: number;
-      stdDev: number;
-      p50: number;
-      p90: number;
-      p99: number;
-    };
     secondPingLatency: {
       min: number;
       max: number;
