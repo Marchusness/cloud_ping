@@ -10,8 +10,6 @@ export type PingDocument = {
   }[];
   cloudflareDataCenterAirportCode: string;
   timestamp: number;
-  // Number of regions attempted, failed pings are left out of results
-  regionsInRun?: number;
 }
 
 export type StatsDocument = {

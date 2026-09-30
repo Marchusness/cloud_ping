@@ -1,5 +1,4 @@
 import { AWSRegion, ChinaAwsRegion } from "../constants/aws";
-import { parallelProcessor } from "./parallelProcessor";
 import { ping } from "./ping";
 
 export type RegionLatency = {
@@ -10,23 +9,22 @@ export type RegionLatency = {
   pingOrder: number;
 };
 
-// Regions that fail or time out are logged and left out of the results
-export async function pingRegions(
-  regions: (AWSRegion | ChinaAwsRegion)[],
-  concurrency: number,
-): Promise<RegionLatency[]> {
-  const results = await parallelProcessor(regions, async (region, index) => {
+// Regions are pinged one at a time so pings don't compete with each other and pingOrder is a clean
+// sequence. Regions that fail or time out are logged and left out of the results
+export async function pingRegions(regions: (AWSRegion | ChinaAwsRegion)[]): Promise<RegionLatency[]> {
+  const results: RegionLatency[] = [];
+
+  for (const [index, region] of regions.entries()) {
     try {
-      return {
+      results.push({
         region,
         ...await ping(region),
         pingOrder: index + 1,
-      };
+      });
     } catch (error) {
       console.error(`Failed to ping ${region}:`, error);
-      return null;
     }
-  }, concurrency);
+  }
 
-  return results.filter((result) => result !== null);
+  return results;
 }

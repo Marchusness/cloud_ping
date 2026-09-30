@@ -4,7 +4,7 @@ Simple api that returns the latency data from the closest cloudflare region to a
 There is also a basic webpage for viewing all latency data at https://marchusness.github.io/cloud_ping/web/
 
 ### How it works
-The api will get the cloudflare data center code from the worker handling the request using `request.cf?.colo`. The KV is checked to see if the latency data has been calculated and cached for the current cloudflare data center code. The API will return the latency stats that was stored. After the request returned the stats, the worker will ping 5 random aws regions one after another and update the D1 with the first and second latency ping, along with the order each region was pinged in (`ping_order`) and how many regions were in the run (`regions_in_run`). If the D1 doesn't have data for every aws region for that data center yet, all aws regions are pinged instead. A cron job runs every 10 minutes to calculate the latency stats from d1 and store the stats in KV.
+The api will get the cloudflare data center code from the worker handling the request using `request.cf?.colo`. The KV is checked to see if the latency data has been calculated and cached for the current cloudflare data center code. The API will return the latency stats that was stored. After the request returned the stats, the worker will ping 5 aws regions one after another and update the D1 with the first and second latency ping, along with the order each region was pinged in (`ping_order`). Regions that don't have data for that data center yet are picked first, the rest are picked at random. A cron job runs every 10 minutes to calculate the latency stats from d1 and store the stats in KV.
 
 ### API
 ```
